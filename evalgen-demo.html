@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EvalGen · AI 评测设计助手</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0f0f0f;
+    --paper: #f7f5f0;
+    --cream: #ede9e0;
+    --accent: #1a4fff;
+    --accent-light: #e8eeff;
+    --accent-dark: #0d2db3;
+    --warn: #ff6b2b;
+    --warn-light: #fff0e8;
+    --success: #00875a;
+    --success-light: #e3faf1;
+    --muted: #6b6860;
+    --border: #d8d4ca;
+    --shadow: 0 2px 12px rgba(15,15,15,0.08);
+    --shadow-lg: 0 8px 40px rgba(15,15,15,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--ink);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px;
+    height: 52px;
+    border-bottom: 1px solid #222;
+  }
+  .topbar-logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px; color: var(--paper);
+    letter-spacing: -0.5px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .topbar-logo .badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--accent);
+    background: rgba(26,79,255,0.15);
+    padding: 2px 7px; border-radius: 3px;
+    letter-spacing: 0.5px;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    min-height: calc(100vh - 52px);
+  }
+
+  .left-panel {
+    background: white;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    display: flex; flex-direction: column;
+  }
+
+  .panel-section {
+    padding: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-section:last-child { border-bottom: none; }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 1px; text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-label::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  .api-config-row { display: flex; gap: 8px; }
+  .api-input {
+    flex: 1;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 12px;
+    background: var(--paper);
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .api-input:focus { border-color: var(--accent); background: white; }
+  .api-input::placeholder { color: #bbb; }
+  .api-hint {
+    margin-top: 8px;
+    font-size: 11px; color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .btn-sm {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; font-weight: 500;
+    padding: 9px 14px;
+    border-radius: 6px; border: none; cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-secondary { background: var(--cream); color: var(--ink); }
+  .btn-secondary:hover { background: var(--border); }
+
+  .form-group { margin-bottom: 16px; }
+  .form-label {
+    font-size: 12px; font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .form-label .required { color: var(--warn); font-size: 11px; }
+  .form-label .optional { font-weight: 400; color: var(--muted); font-size: 11px; }
+  .form-input, .form-textarea, .form-select {
+    width: 100%;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 12px;
+    background: var(--paper);
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .form-input:focus, .form-textarea:focus, .form-select:focus {
+    border-color: var(--accent); background: white;
+    box-shadow: 0 0 0 3px rgba(26,79,255,0.08);
+  }
+  .form-textarea { resize: vertical; min-height: 80px; }
+  .form-select { cursor: pointer; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L1 3h10z' fill='%236b6860'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+  }
+
+  .tag-group { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag {
+    font-size: 12px; padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 20px; cursor: pointer;
+    background: white; color: var(--muted);
+    transition: all 0.15s; user-select: none;
+  }
+  .tag:hover { border-color: var(--accent); color: var(--accent); }
+  .tag.active {
+    background: var(--accent-light);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .generate-btn {
+    width: 100%;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'DM Serif Display', serif;
+    font-size: 16px;
+    padding: 14px;
+    border: none; border-radius: 8px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: all 0.2s;
+    letter-spacing: -0.3px;
+  }
+  .generate-btn:hover { background: #1a1a1a; transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+  .generate-btn:active { transform: translateY(0); }
+  .generate-btn:disabled { background: #999; cursor: not-allowed; transform: none; box-shadow: none; }
+  .generate-btn .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  .generate-btn.loading .spinner { display: block; }
+  .generate-btn.loading .btn-text { opacity: 0.7; }
+
+  .right-panel {
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  .output-header {
+    background: white;
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 52px;
+    flex-shrink: 0;
+  }
+
+  .output-tabs { display: flex; gap: 0; height: 100%; }
+  .tab {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; font-weight: 500;
+    padding: 0 20px;
+    border: none; background: none; cursor: pointer;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    letter-spacing: 0.3px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .output-actions { display: flex; gap: 8px; align-items: center; }
+
+  .output-body {
+    flex: 1; overflow-y: auto;
+    padding: 32px;
+    position: relative;
+  }
+
+  .empty-state {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 100%;
+    text-align: center;
+  }
+  .empty-state .big-text {
+    font-family: 'DM Serif Display', serif;
+    font-size: 48px; color: var(--border);
+    line-height: 1; margin-bottom: 16px;
+  }
+  .empty-state .sub-text {
+    font-size: 14px; color: var(--muted);
+    max-width: 320px; line-height: 1.7;
+  }
+  .empty-state .hint-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin-top: 32px; max-width: 400px;
+  }
+  .hint-card {
+    background: white; border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px;
+    text-align: left;
+  }
+  .hint-card .hint-icon { font-size: 18px; margin-bottom: 6px; }
+  .hint-card .hint-title { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+  .hint-card .hint-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+  .loading-state {
+    display: none;
+    align-items: center; justify-content: center;
+    height: 100%;
+    flex-direction: column; gap: 24px;
+  }
+  .loading-state.active { display: flex; }
+  .loading-state .loading-text {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px; color: var(--muted);
+    letter-spacing: -0.5px;
+  }
+  .loading-steps { display: flex; flex-direction: column; gap: 10px; width: 280px; }
+  .loading-step {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 13px; color: var(--muted);
+    transition: color 0.3s;
+  }
+  .loading-step .step-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border); flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .loading-step.done .step-dot { background: var(--success); }
+  .loading-step.active .step-dot { background: var(--accent); animation: pulse 1s infinite; }
+  .loading-step.done { color: var(--ink); }
+  .loading-step.active { color: var(--accent); font-weight: 500; }
+
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(26,79,255,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(26,79,255,0); }
+  }
+
+  .result-content { display: none; }
+  .result-content.active { display: block; }
+
+  .markdown-preview {
+    background: white; border: 1px solid var(--border);
+    border-radius: 10px; padding: 40px;
+    max-width: 800px;
+    box-shadow: var(--shadow);
+    line-height: 1.8;
+  }
+  .markdown-preview h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px; color: var(--ink);
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 12px; margin-bottom: 24px;
+  }
+  .markdown-preview h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px; color: var(--ink);
+    margin-top: 32px; margin-bottom: 12px;
+  }
+  .markdown-preview h3 {
+    font-size: 14px; font-weight: 600;
+    color: var(--ink);
+    margin-top: 20px; margin-bottom: 8px;
+  }
+  .markdown-preview p { margin-bottom: 12px; }
+  .markdown-preview ul, .markdown-preview ol {
+    padding-left: 20px; margin-bottom: 12px;
+  }
+  .markdown-preview li { margin-bottom: 4px; }
+  .markdown-preview table {
+    width: 100%; border-collapse: collapse;
+    margin: 16px 0; font-size: 13px;
+  }
+  .markdown-preview th {
+    background: var(--ink); color: var(--paper);
+    padding: 10px 14px; text-align: left;
+    font-weight: 600; font-size: 12px;
+  }
+  .markdown-preview td {
+    padding: 9px 14px; border-bottom: 1px solid var(--border);
+  }
+  .markdown-preview tr:nth-child(even) td { background: var(--paper); }
+  .markdown-preview blockquote {
+    border-left: 3px solid var(--accent);
+    padding: 8px 16px; margin: 16px 0;
+    background: var(--accent-light);
+    border-radius: 0 6px 6px 0;
+  }
+  .markdown-preview code {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    background: var(--cream);
+    padding: 2px 6px; border-radius: 3px;
+  }
+
+  .markdown-raw {
+    background: #0f0f0f; border-radius: 10px;
+    padding: 24px; overflow-x: auto;
+    box-shadow: var(--shadow);
+  }
+  .markdown-raw pre {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px; color: #d4d0c8;
+    line-height: 1.7; white-space: pre-wrap;
+  }
+
+  .prompt-panel { display: flex; flex-direction: column; gap: 16px; }
+  .prompt-block {
+    border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .prompt-block-header {
+    padding: 12px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .prompt-block-header { background: var(--ink); }
+  .prompt-block-header .prompt-title { color: var(--paper); }
+  .prompt-title { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .prompt-body { padding: 16px; background: white; }
+  .prompt-textarea {
+    width: 100%; min-height: 320px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px; line-height: 1.7;
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px; background: var(--paper); color: var(--ink);
+    outline: none; resize: vertical;
+    transition: border-color 0.2s;
+  }
+  .prompt-textarea:focus { border-color: var(--accent); background: white; }
+  .prompt-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 300;
+    background: var(--ink); color: var(--paper);
+    padding: 12px 20px; border-radius: 8px;
+    font-size: 13px; font-weight: 500;
+    transform: translateY(80px); opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow: var(--shadow-lg);
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">
+    EvalGen
+    <span class="badge">BETA</span>
+  </div>
+</div>
+
+<div class="app">
+
+  <div class="left-panel">
+
+    <div class="panel-section">
+      <div class="section-label">API 配置</div>
+      <div class="api-config-row">
+        <input type="password" class="api-input" id="apiKeyInput"
+          placeholder="智谱 API Key（open.bigmodel.cn 获取，选填）">
+        <button class="btn-sm btn-primary" onclick="saveApiKey()">保存</button>
+      </div>
+      <div class="api-hint">填写智谱 GLM API Key 可调用真实 API 生成，GLM-4-Flash 有免费额度。留空则使用 Mock 预览。</div>
+    </div>
+
+    <div class="panel-section" style="flex:1; overflow-y:auto;">
+      <div class="section-label">项目信息</div>
+
+      <div class="form-group">
+        <div class="form-label">功能描述 <span class="required">*</span></div>
+        <textarea class="form-textarea" id="fDescription" rows="3"
+          placeholder="一句话描述这个 AI 功能做什么&#10;示例：智能客服机器人自动回复用户常见问题"></textarea>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">用户场景 <span class="required">*</span></div>
+        <textarea class="form-textarea" id="fScene" rows="3"
+          placeholder="谁在用、在哪用、解决什么问题&#10;示例：C 端用户在 App 内咨询，期望秒级响应"></textarea>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">成功定义 <span class="required">*</span></div>
+        <textarea class="form-textarea" id="fSuccess" rows="2"
+          placeholder="你认为什么叫「效果好」&#10;示例：回复准确、不产生幻觉、响应 ≤ 2s"></textarea>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">时间压力 <span class="optional">选填</span></div>
+        <select class="form-select" id="fTime">
+          <option value="tight">紧（< 2 周）</option>
+          <option value="medium" selected>中等（2–4 周）</option>
+          <option value="loose">宽松（> 1 个月）</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">用户群体 <span class="optional">选填</span></div>
+        <div class="tag-group" id="audienceTags">
+          <span class="tag" onclick="toggleTag(this)">C 端用户</span>
+          <span class="tag" onclick="toggleTag(this)">B 端用户</span>
+          <span class="tag" onclick="toggleTag(this)">未成年人</span>
+          <span class="tag" onclick="toggleTag(this)">医疗场景</span>
+          <span class="tag" onclick="toggleTag(this)">金融场景</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">输出形式 <span class="optional">选填</span></div>
+        <div class="tag-group" id="outputTags">
+          <span class="tag active" onclick="toggleTag(this)">文本</span>
+          <span class="tag" onclick="toggleTag(this)">图片</span>
+          <span class="tag" onclick="toggleTag(this)">语音</span>
+          <span class="tag" onclick="toggleTag(this)">代码</span>
+          <span class="tag" onclick="toggleTag(this)">结构化数据</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">是否有 Baseline <span class="optional">选填</span></div>
+        <select class="form-select" id="fBaseline">
+          <option value="no">无（首次评测）</option>
+          <option value="yes">有（与旧版/竞品对比）</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <button class="generate-btn" id="generateBtn" onclick="generate()">
+        <div class="spinner"></div>
+        <span class="btn-text">生成评测方案</span>
+      </button>
+    </div>
+
+  </div>
+
+  <div class="right-panel">
+    <div class="output-header">
+      <div class="output-tabs">
+        <button class="tab active" id="tab-preview" onclick="switchTab('preview')">📄 方案预览</button>
+        <button class="tab" id="tab-raw" onclick="switchTab('raw')">&lt;/&gt; Markdown 源码</button>
+        <button class="tab" id="tab-prompt" onclick="switchTab('prompt')">⚙ Prompt 编辑</button>
+      </div>
+      <div class="output-actions" id="outputActions" style="display:none">
+        <button class="btn-sm btn-secondary" onclick="copyMarkdown()">复制 MD</button>
+      </div>
+    </div>
+
+    <div class="output-body" id="outputBody">
+
+      <div class="empty-state" id="emptyState">
+        <div class="big-text">EvalGen</div>
+        <div class="sub-text">填写左侧表单，生成专业 AI 评测方案和预期报告框架</div>
+        <div class="hint-grid">
+          <div class="hint-card">
+            <div class="hint-icon">🎯</div>
+            <div class="hint-title">自动分析任务特性</div>
+            <div class="hint-desc">判断有无标准答案、是否多模态、安全风险等级等 7 个维度</div>
+          </div>
+          <div class="hint-card">
+            <div class="hint-icon">📊</div>
+            <div class="hint-title">推荐指标体系</div>
+            <div class="hint-desc">核心指标 + 辅助指标 + 护栏指标，覆盖幻觉率、安全性等</div>
+          </div>
+          <div class="hint-card">
+            <div class="hint-icon">📋</div>
+            <div class="hint-title">预期报告框架</div>
+            <div class="hint-desc">评测前锁定通过标准，结束后只需填数字</div>
+          </div>
+          <div class="hint-card">
+            <div class="hint-icon">⚙</div>
+            <div class="hint-title">全篇幅编辑 Prompt</div>
+            <div class="hint-desc">支持完整编辑系统 Prompt，满足公司术语与风格定制</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="loading-state" id="loadingState">
+        <div class="loading-text">正在生成…</div>
+        <div class="loading-steps" id="loadingSteps">
+          <div class="loading-step active" id="step1"><div class="step-dot"></div>解析任务特性</div>
+          <div class="loading-step" id="step2"><div class="step-dot"></div>推荐指标体系</div>
+          <div class="loading-step" id="step3"><div class="step-dot"></div>生成数据集建议</div>
+          <div class="loading-step" id="step4"><div class="step-dot"></div>输出评测方案</div>
+          <div class="loading-step" id="step5"><div class="step-dot"></div>构建报告框架</div>
+        </div>
+      </div>
+
+      <div class="result-content" id="resultPreview">
+        <div class="markdown-preview" id="markdownPreview"></div>
+      </div>
+
+      <div class="result-content" id="resultRaw">
+        <div class="markdown-raw"><pre id="markdownRaw"></pre></div>
+      </div>
+
+      <div class="result-content" id="resultPrompt">
+        <div class="prompt-panel">
+          <div class="prompt-block">
+            <div class="prompt-block-header">
+              <div class="prompt-title" style="color:white">⚙ 系统 Prompt（可全篇幅编辑）</div>
+              <button class="btn-sm" style="background:rgba(255,255,255,0.12);color:white;font-size:11px;"
+                onclick="resetPrompt()">恢复默认</button>
+            </div>
+            <div class="prompt-body">
+              <textarea class="prompt-textarea" id="fullPrompt"></textarea>
+              <div class="prompt-actions">
+                <button class="btn-sm btn-primary" onclick="savePrompt()">保存 Prompt</button>
+                <button class="btn-sm btn-secondary" onclick="copyFullPrompt()">复制</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DEFAULT_SYSTEM_PROMPT = `你是 EvalGen，一个专业的 AI 产品评测设计助手，服务于 AI 产品经理团队。
+
+# 任务说明
+根据用户提供的 AI 功能信息，生成一份结构完整、内容专业的评测设计方案。
+
+---
+
+# 第一步：任务特性分析
+
+对以下 7 个维度逐一做出判断，格式为：**维度名称**：是 / 否 / 高 / 中 / 低（附 1 句判断理由），以表格形式输出。
+
+1. **有无标准答案**：功能描述中含"生成""创作""建议""推荐""对话"→ 无标准答案；含"分类""抽取""判断""识别"→ 有标准答案
+2. **是否个性化**：输出因用户历史/偏好/身份不同而不同 → 是；同一输入对所有用户输出相同 → 否
+3. **是否多模态**：输入或输出涉及图片、音频、视频 → 是；纯文本 → 否
+4. **是否多轮交互**：场景含"对话""追问""上下文记忆" → 是；单次输入输出 → 否
+5. **安全风险等级**：用户群体含未成年/医疗/金融/法律 → 高；普通 C 端 → 中；内部工具/B 端 → 低
+6. **实时性敏感度**：功能依赖最新信息（新闻/价格/库存）→ 高；依赖相对稳定知识 → 低
+7. **输出确定性要求**：明确要求格式/结构/必填字段 → 高；自由生成 → 低
+
+---
+
+# 第二步：指标体系（三层结构）
+
+**层级定义：**
+- 核心指标（1-3 个）：直接对应用户的"成功定义"，是上线与否的决定性依据
+- 辅助指标（2-5 个）：多维度反映质量，辅助判断，不直接决定上线
+- 护栏指标（1-3 个）：底线指标，任意一个不达标则直接阻塞上线，无论核心指标多好
+
+**选指标规则（严格按任务特性选择，不堆砌）：**
+
+| 条件 | 推荐指标 |
+|------|----------|
+| 有标准答案 | 准确率 Accuracy、F1 Score |
+| 无标准答案 + 文本生成 | 相关性、流畅性、幻觉率 |
+| 多轮对话 | 上下文一致性、意图跟踪率 |
+| 个性化任务 | 用户满意度、采纳率（而非群体准确率） |
+| 安全风险高 | 安全通过率（护栏，必须 ≥ 99.9%） |
+| 有格式要求 | Instruction Following Rate |
+| 所有在线服务 | P99 延迟（护栏） |
+
+**对每个指标必须输出：**
+- 指标名称与定义（1 句话）
+- 评测方式（自动评测 / 人工标注 / LLM Judge）
+- 行业参考阈值（附来源说明）
+
+---
+
+# 第三步：数据集设计建议
+
+必须包含：
+1. **推荐数据量**：给出具体数字范围（如"建议 500–1000 条"），并说明理由
+2. **分层策略**：
+   - 正常 case（建议 60–70%）：覆盖核心使用场景
+   - Edge case（建议 20–30%）：边界情况，如超长输入、空输入、特殊字符、歧义表达
+   - 对抗样本（建议 10%）：专门设计用于暴露模型弱点的 case
+3. **标注要求**：
+   - 若有标准答案：说明 ground truth 的字段和格式
+   - 若无标准答案：提供评分维度（如相关性 1-5 分标准），以及标注一致性要求（Cohen's κ ≥ 0.7）
+
+---
+
+# 第四步：评测方式推荐
+
+根据任务特性给出推荐组合，说明各部分执行方式：
+
+| 评测方式 | 适用条件 | 注意事项 |
+|----------|----------|----------|
+| 自动评测 | 有标准答案 + 数据量大 | 需提前准备 ground truth |
+| LLM Judge | 无标准答案 + 预算有限 | 需设计 judge prompt，注意位置偏差 |
+| 人工标注 | 高风险场景 + 细粒度判断 | 需标注指南，计算标注一致性 |
+| A/B Test | 有 baseline + 时间充裕 | 需保证流量分配和统计显著性 |
+
+若时间紧张（< 2 周），优先推荐自动评测 + 少量人工抽检。
+
+---
+
+# 第五步：通过标准
+
+输出格式：
+
+> **综合通过条件**：所有核心指标达标 + 所有护栏指标达标 = 可上线
+
+对每个核心指标和护栏指标列出：
+- 达标阈值
+- 有条件通过情况（例：某指标差 2pp 但有明确改进计划，可带条件上线）
+
+---
+
+# 第六步：预期评测报告框架
+
+生成一份可在评测完成后直接填写的报告框架。**必须包含可填写的表格**，不能只有标题。
+
+报告结构：
+1. 执行摘要（结论：通过 / 有条件通过 / 不通过）— 待填
+2. 核心指标结果表（含：指标 | 目标值 | 实测值 | 是否达标）— 自动生成表头和目标值，实测值留空
+3. 亮点发现 — 预留空白
+4. 风险与问题 — 预留空白
+5. 分场景分析（按测试集分层逐类报告）— 自动生成表格框架
+6. 与 baseline 对比（如有 baseline 则包含此节）
+7. 上线建议 — 预留空白
+
+---
+
+# 输出格式要求
+
+- 使用 Markdown 格式
+- 每章节用 ## 标题
+- 表格用标准 Markdown 表格语法
+- 语言专业但不堆砌术语，每个建议都要有依据
+- 最后提示 PM：所有阈值和建议均为行业参考值，可根据公司实际情况调整
+
+---
+
+# 示例输出片段（供参考格式）
+
+## 二、指标体系
+
+### 核心指标
+
+| 指标 | 定义 | 评测方式 | 目标阈值 | 参考来源 |
+|------|------|----------|----------|----------|
+| 意图识别准确率 | 模型正确理解用户问题类别的比例 | 自动评测（对比 ground truth 标签） | ≥ 85% | 行业智能客服评测通用基准 |
+| 回复相关性 | 回复内容与用户问题的相关程度（1-5分） | LLM Judge | 平均 ≥ 4.0 | 内部历史评测数据 |
+
+### 护栏指标
+
+| 指标 | 定义 | 阈值 | 不达标处理 |
+|------|------|------|------------|
+| 安全内容通过率 | 无有害/违规内容的回复比例 | ≥ 99.5% | 直接阻塞上线，需人工审查 |
+| P99 响应延迟 | 99% 请求的响应时间 | ≤ 3000ms | 直接阻塞上线，需性能优化 |
+
+---
+
+记住：生成内容必须基于用户提供的具体功能信息做定制化推荐，不要给出与任务无关的通用建议。`;
+
+let state = {
+  apiKey: '',
+  systemPrompt: DEFAULT_SYSTEM_PROMPT,
+  generatedMd: '',
+  formData: {},
+  hasResult: false
+};
+
+function saveApiKey() {
+  const val = document.getElementById('apiKeyInput').value.trim();
+  state.apiKey = val;
+  try { val ? localStorage.setItem('evalgen_apiKey', val) : localStorage.removeItem('evalgen_apiKey'); } catch (_) {}
+  showToast(val ? '✓ API Key 已保存' : '✓ 已清除，将使用 Mock 预览');
+}
+
+function toggleTag(el) { el.classList.toggle('active'); }
+
+function getActiveTags(containerId) {
+  const c = document.getElementById(containerId);
+  return Array.from(c.querySelectorAll('.tag.active')).map(t => t.textContent.trim());
+}
+
+function switchTab(tab) {
+  ['preview','raw','prompt'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+    const r = 'result' + t.charAt(0).toUpperCase() + t.slice(1);
+    document.getElementById(r).classList.toggle('active', t===tab);
+  });
+}
+
+function buildUserMessage(data) {
+  const audienceStr = data.audience.length ? data.audience.join('、') : '未指定';
+  const outputStr = data.output.length ? data.output.join('、') : '文本';
+  const timeMap = {tight:'紧（< 2周）', medium:'中等（2–4周）', loose:'宽松（> 1个月）'};
+  const baselineStr = data.baseline === 'yes' ? '有（需对比分析）' : '无（首次评测）';
+  return `请为以下 AI 功能生成完整的评测设计方案，严格按照六步结构输出：
+
+---
+
+## 待评测功能信息
+
+**功能描述：** ${data.description}
+
+**用户场景：** ${data.scene}
+
+**PM 的成功定义（这是选指标的核心依据）：** ${data.success}
+
+**上线时间压力：** ${timeMap[data.time]}
+
+**用户群体：** ${audienceStr}
+
+**输出形式：** ${outputStr}
+
+**是否有 Baseline：** ${baselineStr}
+
+---
+
+请依次输出：任务特性分析 → 指标体系 → 数据集设计 → 评测方式 → 通过标准 → 预期报告框架。
+所有表格必须填写完整，报告框架中的指标表格需根据上面推荐的指标自动生成表头和目标值。`;
+}
+
+async function callGLMAPI(apiKey, systemPrompt, userMessage) {
+  const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey
+    },
+    body: JSON.stringify({
+      model: 'glm-4-flash',
+      max_tokens: 4000,
+      temperature: 0.3,
+  top_p: 0.9,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage }
+      ]
+    })
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || err.message || `HTTP ${response.status}`);
+  }
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
+function generateMockOutput(formData) {
+  const audienceStr = formData.audience.length ? formData.audience.join('、') : '未指定';
+  const outputStr = formData.output.length ? formData.output.join('、') : '文本';
+  const timeMap = {tight:'紧（< 2周）', medium:'中等（2–4周）', loose:'宽松（> 1个月）'};
+  const baselineSection = formData.baseline === 'yes' ? `
+## 与 Baseline 对比
+
+| 指标 | Baseline | 当前版本 | 变化 |
+| --- | --- | --- | --- |
+| _待填入_ | _待填入_ | _待填入_ | _待填入_ |
+` : '';
+
+  return `# ${formData.description} 评测方案
+
+## 1. 任务特性分析
+
+| 维度 | 判断 | 说明 |
+| --- | --- | --- |
+| 有无唯一标准答案 | 待 LLM 分析 | 根据功能描述判断 |
+| 是否个性化 | 待 LLM 分析 | 根据用户群体判断 |
+| 是否多模态 | ${outputStr.includes('图片') || outputStr.includes('语音') ? '是' : '否'} | 输出形式：${outputStr} |
+| 是否多轮交互 | 待 LLM 分析 | 根据场景判断 |
+| 安全风险等级 | ${formData.audience.some(a=>['未成年人','医疗场景','金融场景'].includes(a)) ? '高' : '中'} | 用户群体：${audienceStr} |
+| 实时性敏感度 | 待 LLM 分析 | — |
+| 输出确定性要求 | 待 LLM 分析 | — |
+
+## 2. 指标体系
+
+### 核心指标（1-3 个）
+
+| 指标 | 目标值 | 说明 |
+| --- | --- | --- |
+| _根据成功定义自动推荐_ | _待填入_ | — |
+
+### 辅助指标（2-5 个）
+
+| 指标 | 目标值 | 说明 |
+| --- | --- | --- |
+| _待填入_ | _待填入_ | — |
+
+### 护栏指标
+
+| 指标 | 目标值 | 说明 |
+| --- | --- | --- |
+| 安全性通过率 | ≥ 99.9% | 如有敏感场景 |
+| 幻觉率 | ≤ 5% | 生成类任务 |
+
+## 3. 数据集设计建议
+
+- **推荐数量：** 分类任务 ≥ 500 条；生成任务人工评定 ≥ 100 条
+- **分层：** 正常 case 70% / edge case 20% / 对抗样本 10%
+- **时间压力：** ${timeMap[formData.time]} — 可酌情调整自动化比例
+
+## 4. 评测方式推荐
+
+根据任务特性和时间压力，推荐自动化 / LLM Judge / 人工的组合方案。_具体由 LLM 根据任务特性生成。_
+
+## 5. 通过标准
+
+所有核心指标达标 + 护栏指标达标，方可上线。_阈值由 LLM 根据行业参考值生成。_
+
+## 6. 预期评测报告框架
+
+### 执行摘要
+
+- 评测结论：□ 通过 / □ 有条件通过 / □ 不通过
+- 一句话总结：_待填入_
+
+### 核心指标结果表
+
+| 指标 | 目标值 | 实测值 | 是否达标 |
+| --- | --- | --- | --- |
+| _待填入_ | _待填入_ | _待填入_ | _待填入_ |
+${baselineSection}
+---
+
+> 此为演示用模板，实际内容需由 LLM 根据 Prompt 生成。填写表单后点击「生成评测方案」可看到基于表单数据的结构预览。
+`;
+}
+
+async function generate() {
+  const desc = document.getElementById('fDescription').value.trim();
+  const scene = document.getElementById('fScene').value.trim();
+  const success = document.getElementById('fSuccess').value.trim();
+
+  if (!desc || !scene || !success) {
+    showToast('⚠ 请填写必填项（功能描述、用户场景、成功定义）');
+    return;
+  }
+
+  state.formData = {
+    description: desc,
+    scene,
+    success,
+    time: document.getElementById('fTime').value,
+    audience: getActiveTags('audienceTags'),
+    output: getActiveTags('outputTags'),
+    baseline: document.getElementById('fBaseline').value
+  };
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('loadingState').classList.add('active');
+  ['resultPreview','resultRaw','resultPrompt'].forEach(id =>
+    document.getElementById(id).classList.remove('active'));
+  document.getElementById('outputActions').style.display = 'none';
+
+  const steps = ['step1','step2','step3','step4','step5'];
+  const stepInterval = 3000;
+  steps.forEach((id) => {
+    const el = document.getElementById(id);
+    el.classList.remove('done','active');
+  });
+  document.getElementById('step1').classList.add('active');
+
+  let stepTimer;
+  function advanceStep() {
+    const idx = steps.findIndex(id => document.getElementById(id).classList.contains('active'));
+    if (idx >= 0) {
+      document.getElementById(steps[idx]).classList.replace('active','done');
+      if (idx + 1 < steps.length) {
+        document.getElementById(steps[idx + 1]).classList.add('active');
+        stepTimer = setTimeout(advanceStep, stepInterval);
+      }
+    }
+  }
+  stepTimer = setTimeout(advanceStep, stepInterval);
+
+  const systemPrompt = document.getElementById('fullPrompt').value.trim() || state.systemPrompt;
+  const userMessage = buildUserMessage(state.formData);
+  const apiKey = state.apiKey || document.getElementById('apiKeyInput').value.trim();
+  let markdown = '';
+
+  if (apiKey) {
+    try {
+      markdown = await callGLMAPI(apiKey, systemPrompt, userMessage);
+    } catch (e) {
+      if (stepTimer) clearTimeout(stepTimer);
+      document.getElementById('loadingState').classList.remove('active');
+      document.getElementById('emptyState').style.display = 'flex';
+      btn.disabled = false;
+      btn.classList.remove('loading');
+      showToast('⚠ 生成失败：' + e.message);
+      return;
+    }
+  } else {
+    await new Promise(r => setTimeout(r, 400));
+    markdown = generateMockOutput(state.formData);
+  }
+
+  state.generatedMd = markdown;
+  state.hasResult = true;
+
+  document.getElementById('markdownPreview').innerHTML = renderMarkdown(state.generatedMd);
+  document.getElementById('markdownRaw').textContent = state.generatedMd;
+
+  if (stepTimer) clearTimeout(stepTimer);
+  document.getElementById('loadingState').classList.remove('active');
+  switchTab('preview');
+  document.getElementById('resultPreview').classList.add('active');
+  document.getElementById('outputActions').style.display = 'flex';
+  btn.disabled = false;
+  btn.classList.remove('loading');
+  showToast('✓ 评测方案生成完成');
+}
+
+function renderMarkdown(md) {
+  let html = md
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+    .replace(/(\|.+\|\n)+/g, (match) => {
+      const rows = match.trim().split('\n');
+      let table = '<table>';
+      rows.forEach((row, i) => {
+        if (row.match(/^\|[-| :]+\|$/)) return;
+        const cells = row.split('|').filter((_, ci) => ci > 0 && ci < row.split('|').length - 1);
+        const tag = i === 0 ? 'th' : 'td';
+        table += '<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
+      });
+      return table + '</table>';
+    })
+    .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, m => '<ul>' + m + '</ul>')
+    .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+    .replace(/\n\n([^<\n].+)/g, '<p>$1</p>');
+  return html;
+}
+
+function copyMarkdown() {
+  if (!state.generatedMd) return;
+  navigator.clipboard.writeText(state.generatedMd).then(() =>
+    showToast('✓ Markdown 已复制到剪贴板'));
+}
+
+function resetPrompt() {
+  document.getElementById('fullPrompt').value = DEFAULT_SYSTEM_PROMPT;
+  state.systemPrompt = DEFAULT_SYSTEM_PROMPT;
+  showToast('✓ 已恢复默认 Prompt');
+}
+
+function savePrompt() {
+  state.systemPrompt = document.getElementById('fullPrompt').value.trim() || DEFAULT_SYSTEM_PROMPT;
+  showToast('✓ Prompt 已保存，下次生成时生效');
+}
+
+function copyFullPrompt() {
+  const text = document.getElementById('fullPrompt').value;
+  navigator.clipboard.writeText(text).then(() => showToast('✓ Prompt 已复制'));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+document.getElementById('fullPrompt').value = DEFAULT_SYSTEM_PROMPT;
+state.systemPrompt = DEFAULT_SYSTEM_PROMPT;
+try {
+  const stored = localStorage.getItem('evalgen_apiKey');
+  if (stored) { state.apiKey = stored; document.getElementById('apiKeyInput').value = stored; }
+} catch (_) {}
+</script>
+</body>
+</html>
